@@ -1,5 +1,5 @@
 [package]
-name = "sync-unique-files"
+name = "unique-files"
 version = "0.1.0"
 authors = ["Nico <crop.nicolas@gmail.com>"]
 edition = "2018"
@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 sha2 = "0.9.2"
 log = "0.4"
+colored = "2"
+chrono = "0.4"
