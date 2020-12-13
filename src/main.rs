@@ -1,5 +1,7 @@
 mod files_map;
 mod logger;
+mod ui;
+
 use std::env;
 use log::LevelFilter;
 use log::{info, error, debug};
@@ -33,6 +35,6 @@ fn main() {
             source.init();
         }
     } else {
-        println!("Should run as GUI");
+        ui::window_application();
     }
 }
