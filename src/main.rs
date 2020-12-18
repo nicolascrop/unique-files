@@ -11,6 +11,14 @@ fn print_usage() {
     std::process::exit(-1);
 }
 
+fn on_total(total: i32) {
+    info!("Total d'éléments {:?}", total);
+}
+
+fn on_progress(path: &std::path::PathBuf) {
+    info!("On progress path: {:?}", path);
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
@@ -28,12 +36,11 @@ fn main() {
             &args[1..args.len() - 1],
             &args[args.len() - 1]
         );
-        let mut target = files_map::TargetFileBrowser::new(&args[args.len() - 1]);
-        target.init();
+        let mut sources: Vec<String> = Vec::new();
         for i in 1..args.len() - 1 {
-            let mut source = files_map::SourceFileBrowser::new(&args[i], &target);
-            source.init();
+            sources.push(args[i].clone());
         }
+        files_map::start_copy(&args[args.len() - 1], &sources, true, on_total, on_progress);
     } else {
         ui::window_application();
     }

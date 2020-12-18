@@ -1,17 +1,49 @@
-use cpp_core::{Ptr, Ref, StaticUpcast};
-use qt_core::{qs, slot, ContextMenuPolicy, QBox, QObject, QPoint, SlotNoArgs};
+use cpp_core::{Ptr, StaticUpcast};
+use qt_core::{qs, slot, QBox, QObject, SlotNoArgs, MatchFlag, QFlags, QSize};
 use qt_widgets::{
-    QAction, QApplication, QLineEdit, QMenu, QMessageBox, QPushButton, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget, SlotOfQPoint, SlotOfQTableWidgetItemQTableWidgetItem,
-    QGroupBox, QHBoxLayout, QFileDialog, q_file_dialog
+    QApplication, QLineEdit, QMessageBox, QPushButton,
+    QWidget,
+    QGroupBox, QHBoxLayout, QFileDialog, QVBoxLayout, QListWidget, QProgressDialog
 };
 use std::rc::Rc;
+use crate::files_map;
+use std::path::PathBuf;
+
+struct Progress {
+    progress_dialog: QBox<QProgressDialog>
+}
+
+impl Progress {
+    fn new(form: Rc<Form>, target: &String, sources: &Vec<String>) -> Rc<Progress> {
+        unsafe {
+            let progress_dialog = QProgressDialog::new_1a(&form.window);
+            let this = Rc::new(Self {
+                progress_dialog
+            });
+            files_map::start_copy(&target, &sources, true, this.on_total, this.on_progress);
+            this
+        }
+    }
+
+    fn on_progress(self: &Rc<Self>, path: &PathBuf) {
+        self.progress_dialog.set_value(self.progress_dialog.value() + 1);
+        self.progress_dialog.set_label_text(&qs(path.clone().into_os_string().into_string().unwrap().as_str()));
+    }
+
+    fn on_total(self: &Rc<Self>, total: i32) {
+        self.progress_dialog.set_maximum(total);
+    }
+}
+
 
 struct Form {
     window: QBox<QWidget>,
-    line_edit: QBox<QLineEdit>,
-    button: QBox<QPushButton>,
-    table: QBox<QTableWidget>,
+    browse_target_btn: QBox<QPushButton>,
+    target_file_path: QBox<QLineEdit>,
+    add_source_btn: QBox<QPushButton>,
+    delete_source_btn: QBox<QPushButton>,
+    list_source: QBox<QListWidget>,
+    start_btn: QBox<QPushButton>
 }
 
 impl StaticUpcast<QObject> for Form {
@@ -24,138 +56,144 @@ impl Form {
     fn new() -> Rc<Form> {
         unsafe {
             let window = QWidget::new_0a();
+            window.set_minimum_size_1a(&QSize::new_2a(650, 450));
             let v_layout = QVBoxLayout::new_1a(&window);
 
             let source_files_box = QGroupBox::from_q_string(&qs("Dossier(s) source"));
+            let source_h_layout = QHBoxLayout::new_1a(&source_files_box);
+            let list_source = QListWidget::new_0a();
+            let btn_container = QWidget::new_0a();
+            btn_container.set_style_sheet(&qs("width: 100px;"));
+            source_h_layout.add_widget(&list_source);
+            source_h_layout.add_widget(&btn_container);
+            let source_btn_v_layout = QVBoxLayout::new_1a(&btn_container);
+
+            let add_source_btn = QPushButton::from_q_string(&qs("Ajouter"));
+            let delete_source_btn = QPushButton::from_q_string(&qs("Supprimer"));
+            delete_source_btn.set_enabled(false);
+            source_btn_v_layout.add_widget(&add_source_btn);
+            source_btn_v_layout.add_widget(&delete_source_btn);
+            source_btn_v_layout.add_stretch_0a();
+
             v_layout.add_widget(&source_files_box);
 
             let target_file_box = QGroupBox::from_q_string(&qs("Dossier cible"));
             let target_files_layout = QHBoxLayout::new_1a(&target_file_box);
 
-            let line_edit = QLineEdit::new();
-            target_files_layout.add_widget(&line_edit);
+            let target_file_path = QLineEdit::new();
+            target_files_layout.add_widget(&target_file_path);
 
-            let browse = QPushButton::from_q_string(&qs("Parcourir"));
-            target_files_layout.add_widget(&browse);
-            v_layout.add_widget(&source_files_box);
-
-            //file_box.set_layout(&v_layout);
-            //let txt = QFileDialog::get_existing_directory_2a(&window, &qs("Dossier cible"));
-            println!("{:?}", txt);
+            let browse_target_btn = QPushButton::from_q_string(&qs("Parcourir"));
+            target_files_layout.add_widget(&browse_target_btn);
             v_layout.add_widget(&target_file_box);
 
-
-
-            let button = QPushButton::from_q_string(&qs("Start"));
-            button.set_enabled(false);
-            v_layout.add_widget(&button);
-
-            let table = QTableWidget::new_0a();
-            table.set_context_menu_policy(ContextMenuPolicy::CustomContextMenu);
-            table.set_row_count(2);
-            table.set_column_count(1);
-
-            let item1 = QTableWidgetItem::new().into_ptr();
-            item1.set_text(&qs("Item 1"));
-            table.set_item(0, 0, item1);
-
-            let item2 = QTableWidgetItem::new().into_ptr();
-            item2.set_text(&qs("Item 2"));
-            table.set_item(1, 0, item2);
-
-            v_layout.insert_widget_2a(0, &table);
+            let start_btn = QPushButton::from_q_string(&qs("Executer"));
+            start_btn.set_enabled(false);
+            v_layout.add_widget(&start_btn);
 
             window.show();
 
             let this = Rc::new(Self {
                 window,
-                button,
-                line_edit,
-                table,
+                browse_target_btn,
+                target_file_path,
+                add_source_btn,
+                delete_source_btn,
+                list_source,
+                start_btn
             });
             this.init();
             this
         }
     }
 
-    unsafe fn link(self: &Rc<Self>, text_box: Ptr<QLineEdit>, button: Ptr<QPushButton>) {
-        button.clicked().connect(&self.slot_on_directory_selected(text_box));
+    unsafe fn check_if_we_enable_start_button(self: &Rc<Self>) {
+        self.start_btn.set_enabled(self.target_file_path.text().to_std_string().len() > 0 && self.list_source.count() > 0);
     }
 
-    #[slot(SlotOfDirectorySelected)]
-    unsafe fn on_directory_selected(self: &Rc<Self>, text_box: Ptr<QLineEdit>) {
-        let txt = QFileDialog::get_existing_directory_2a(&self.window, &qs("Dossier cible"));
-        println!("{}", txt.to_std_string());
+    #[slot(SlotNoArgs)]
+    unsafe fn on_start_button_clicked(self: &Rc<Self>) {
+        let target = self.target_file_path.text().to_std_string();
+        let mut sources: Vec<String> = Vec::new();
+        for i in 0..self.list_source.count() {
+            sources.push(self.list_source.item(i).text().to_std_string());
+        }
+        println!("Target {:?}, sources: {:?}", target, sources);
+
     }
 
+    #[slot(SlotNoArgs)]
+    unsafe fn on_source_list_item_changed(self: &Rc<Self>) {
+        let qlist_qlistitem = self.list_source.selected_items().as_raw_ptr().as_ref().unwrap();
+        self.delete_source_btn.set_enabled(qlist_qlistitem.count_0a() > 0);
+    }
+
+    #[slot(SlotNoArgs)]
+    unsafe fn on_browse_button_clicked(self: &Rc<Self>) {
+        let path = QFileDialog::get_existing_directory_2a(&self.window, &qs("Dossier cible"));
+        self.target_file_path.set_text(&path);
+        self.check_if_we_enable_start_button();
+    }
+
+    #[slot(SlotNoArgs)]
+    unsafe fn on_add_source_button_clicked(self: &Rc<Self>) {
+        let path = QFileDialog::get_existing_directory_2a(&self.window, &qs("Dossier source"));
+        let str = path.to_std_string();
+        if str == "" {
+            return;
+        }
+        let vec: Vec<&str> = str.split('/').collect();
+        let mut is_found = false;
+        for i in 0..vec.len() {
+            let mut to_search = String::new();
+            for j in 0..=i {
+                if j > 0 {
+                    to_search += "/";
+                }
+                to_search += vec[j];
+            }
+            let items_found = self.list_source.find_items(&qs(to_search), QFlags::from(MatchFlag::MatchExactly));
+            if items_found.count_0a() > 0 {
+                is_found = true;
+                break;
+            }
+        }
+        if is_found {
+            QMessageBox::warning_q_widget2_q_string(
+                &self.window,
+                &qs("Attention"),
+                &qs("Le chemin spécifié a déjà été ajouté ou se trouve au sein d'un dossier déjà ajouté")
+            );
+        } else {
+            self.list_source.add_item_q_string(&path);
+        }
+        self.check_if_we_enable_start_button();
+    }
+
+    #[slot(SlotNoArgs)]
+    unsafe fn on_delete_source_button_clicked(self: &Rc<Self>) {
+        let current_row = self.list_source.current_row();
+        println!("text {:?}", current_row);
+        self.list_source.take_item(current_row);
+        self.check_if_we_enable_start_button();
+    }
 
     unsafe fn init(self: &Rc<Self>) {
-        self.button
+        self.browse_target_btn
             .clicked()
-            .connect(&self.slot_on_button_clicked());
-        self.line_edit
-            .text_edited()
-            .connect(&self.slot_on_line_edit_text_edited());
-        self.table
-            .current_item_changed()
-            .connect(&self.slot_on_table_current_item_changed());
-        self.table
-            .custom_context_menu_requested()
-            .connect(&self.slot_on_table_context_menu_requested());
-    }
-
-    #[slot(SlotNoArgs)]
-    unsafe fn on_line_edit_text_edited(self: &Rc<Self>) {
-        self.button.set_enabled(!self.line_edit.text().is_empty());
-    }
-
-    #[slot(SlotNoArgs)]
-    unsafe fn on_button_clicked(self: &Rc<Self>) {
-        let text = self.line_edit.text();
-        QMessageBox::information_q_widget2_q_string(
-            &self.window,
-            &qs("Example"),
-            &qs("Text: \"%1\". Congratulations!").arg_q_string(&text),
-        );
-    }
-
-    #[slot(SlotOfQTableWidgetItemQTableWidgetItem)]
-    unsafe fn on_table_current_item_changed(
-        self: &Rc<Self>,
-        current: Ptr<QTableWidgetItem>,
-        previous: Ptr<QTableWidgetItem>,
-    ) {
-        if !previous.is_null() {
-            let font = previous.font();
-            font.set_bold(false);
-            previous.set_font(&font);
-        }
-        if !current.is_null() {
-            let font = current.font();
-            font.set_bold(true);
-            current.set_font(&font);
-        }
-    }
-
-    #[slot(SlotOfQPoint)]
-    unsafe fn on_table_context_menu_requested(self: &Rc<Self>, pos: Ref<QPoint>) {
-        let global_pos = self.table.viewport().map_to_global(pos);
-        let menu = QMenu::new();
-        menu.add_action_q_string(&qs("Fake action 1"));
-        menu.add_action_q_string(&qs("Fake action 2"));
-
-        let action3 = QAction::from_q_string(&qs("Real action"));
-        menu.add_action(&action3);
-
-        let action = menu.exec_1a_mut(&global_pos);
-        let message = if action.is_null() {
-            "No action selected!".to_string()
-        } else if action.as_raw_ptr() == action3.as_raw_ptr() {
-            "Real action selected!".to_string()
-        } else {
-            format!("Fake action selected ({})", action.text().to_std_string())
-        };
-        QMessageBox::information_q_widget2_q_string(&self.window, &qs("Example"), &qs(message));
+            .connect(&self.slot_on_browse_button_clicked());
+        self.add_source_btn
+            .clicked()
+            .connect(&self.slot_on_add_source_button_clicked());
+        self.delete_source_btn
+            .clicked()
+            .connect(&self.slot_on_delete_source_button_clicked());
+        self.start_btn
+            .clicked()
+            .connect(&self.slot_on_start_button_clicked());
+        self.list_source
+            .item_selection_changed()
+            .connect(&self.slot_on_source_list_item_changed());
     }
 }
 
