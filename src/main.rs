@@ -40,7 +40,8 @@ fn main() {
         for i in 1..args.len() - 1 {
             sources.push(args[i].clone());
         }
-        files_map::start_copy(&args[args.len() - 1], &sources, true, on_total, on_progress);
+        on_total(files_map::get_total_files(&sources));
+        files_map::start_copy(&args[args.len() - 1], &sources, true, &on_progress, &on_progress);
     } else {
         ui::window_application();
     }
