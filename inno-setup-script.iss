@@ -42,10 +42,10 @@ Source: "C:\Users\cropn\Projects\distrib-unique-files\sync.ico"; DestDir: "{app}
 Source: "C:\Users\cropn\Projects\distrib-unique-files\unique_files.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\cropn\Projects\distrib-unique-files\unique-files.d"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\cropn\Projects\distrib-unique-files\vc_redist.x64.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\cropn\Projects\distrib-unique-files\iconengines\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\cropn\Projects\distrib-unique-files\imageformats\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\cropn\Projects\distrib-unique-files\platforms\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\cropn\Projects\distrib-unique-files\styles\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\cropn\Projects\distrib-unique-files\iconengines\*"; DestDir: "{app}\iconengines"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\cropn\Projects\distrib-unique-files\imageformats\*"; DestDir: "{app}\imageformats"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\cropn\Projects\distrib-unique-files\platforms\*"; DestDir: "{app}\platforms"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\cropn\Projects\distrib-unique-files\styles\*"; DestDir: "{app}\styles"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
